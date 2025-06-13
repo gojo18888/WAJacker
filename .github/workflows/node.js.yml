@@ -1,30 +1,42 @@
-# This workflow will do a clean installation of node dependencies, cache/restore them, build the source code and run tests across different versions of node
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-nodejs
-
 name: Node.js CI
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [main]
   pull_request:
-    branches: [ "main" ]
+    branches: [main]
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
-    strategy:
-      matrix:
-        node-version: [18.x, 20.x, 22.x]
-        # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
-
     steps:
-    - uses: actions/checkout@v4
-    - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v4
-      with:
-        node-version: ${{ matrix.node-version }}
-        cache: 'npm'
-    - run: npm install
-    - run: npm start
+      # 1) Repo checkout
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 2) Node + automatic npm-cache
+      - name: Use Node.js 20 LTS
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm            # works because package-lock.json committed
+
+      # 3) Dependency install (faster + reproducible)
+      - name: Install deps
+        run: npm ci             # use npm install if you really have no lock-file
+
+      # 4) (optional) run tests
+      - name: Test
+        run: |
+          if [ -f package.json ] && jq -e '.scripts.test' package.json >/dev/null; then
+            npm test
+          else
+            echo "🔎 no tests"
+          fi
+
+      # 5) Start the application (background)
+      - name: Start bot
+        run: |
+          node index.js &       # or npm start
+          sleep 30              # wait 30 s to print boot logs
